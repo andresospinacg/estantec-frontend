@@ -18,7 +18,7 @@
 
 1. **Clonar el repositorio**
 ```bash
-git clone <url-del-repositorio>
+git clone https://github.com/andresospinacg/estantec-frontend.git
 cd estantec-frontend
 ```
 
