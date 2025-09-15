@@ -1,61 +1,86 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Star, ShoppingCart, User, Menu, X, Calendar, Cpu, Smartphone, Laptop, Tablet, Headphones, ArrowLeft, MessageSquare, Send } from 'lucide-react';
+import { Search, Filter, Star, ShoppingCart, User, Menu, X, Calendar, Cpu, Smartphone, Laptop, Tablet, Headphones, ArrowLeft, MessageSquare, Send, Loader } from 'lucide-react';
 
-// Importar datos del esquema de base de datos EstanTec
-import { 
-  mockDispositivos, 
-  mockMarcas, 
-  mockCategorias, 
-  mockResenas, 
-  mockUsuarios,
-  getMarcaById,
-  getCategoriaById,
-  getUsuarioById,
-  getDispositivoCompleto
-} from './data/mockData';
-
-// Datos simulados(en producción los datos vendrían desde la API)
-// Estructura basada en el diagrama entidad relación que se adjunta junto a este proyecto
-
-const mockDevices = mockDispositivos.map(dispositivo => getDispositivoCompleto(dispositivo));
-
-// Usar reseñas del esquema de base de datos
-const mockReviews = mockResenas.map(resena => ({
-  id: resena.id,
-  deviceId: resena.id_dispositivo,
-  user: getUsuarioById(resena.id_usuario)?.nombre_completo || "Usuario",
-  rating: resena.calificacion,
-  comment: resena.comentario,
-  date: resena.fecha_creacion.split('T')[0]
-}));
-
-// Categorías basadas en el esquema de base de datos
-const categories = [
-  { id: 'all', name: 'Todos', icon: Cpu },
-  ...mockCategorias.map(cat => ({
-    id: cat.nombre.toLowerCase(),
-    name: cat.nombre,
-    icon: cat.nombre === 'Smartphones' ? Smartphone :
-          cat.nombre === 'Laptops' ? Laptop :
-          cat.nombre === 'Tablets' ? Tablet :
-          cat.nombre === 'Audio' ? Headphones : Cpu
-  }))
-];
-
-// Marcas basadas en el esquema de base de datos
-const brands = ['Todos', ...mockMarcas.map(marca => marca.nombre)];
+// Importar servicios de API
+import {
+  dispositivosAPI,
+  marcasAPI,
+  categoriasAPI,
+  transformDispositivoFromAPI,
+  transformMarcaFromAPI,
+  transformCategoriaFromAPI
+} from './data/apiService';
 
 const EstanTecApp = () => {
+  // Estado para datos de la API
+  const [devices, setDevices] = useState([]);
+  const [marcas, setMarcas] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Estado del componente
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedBrand, setSelectedBrand] = useState('Todos');
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
-  const [devices, setDevices] = useState(mockDevices);
-  const [reviews, setReviews] = useState(mockReviews);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
   const [selectedImage, setSelectedImage] = useState(0);
+
+  // Cargar datos desde la API
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Cargar dispositivos con relaciones
+        const dispositivosResponse = await dispositivosAPI.getAll();
+        const dispositivosData = dispositivosResponse.dispositivos.map(transformDispositivoFromAPI);
+        setDevices(dispositivosData);
+
+        // Cargar marcas
+        const marcasResponse = await marcasAPI.getAll();
+        const marcasData = marcasResponse.marcas.map(transformMarcaFromAPI);
+        setMarcas(marcasData);
+
+        // Cargar categorías
+        const categoriasResponse = await categoriasAPI.getAll();
+        const categoriasData = categoriasResponse.categorias || categoriasResponse;
+        setCategorias(categoriasData);
+
+        // Por ahora usar reseñas simuladas hasta implementar reseñas API
+        setReviews([]);
+
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError('Error al cargar los datos. Verifica que el servidor backend esté ejecutándose.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Construir categorías dinámicamente desde la API
+  const categories = [
+    { id: 'all', name: 'Todos', icon: Cpu },
+    ...categorias.map(cat => ({
+      id: cat.nombre.toLowerCase(),
+      name: cat.nombre,
+      icon: cat.nombre === 'Smartphones' ? Smartphone :
+            cat.nombre === 'Laptops' ? Laptop :
+            cat.nombre === 'Tablets' ? Tablet :
+            cat.nombre === 'Audio' ? Headphones : Cpu
+    }))
+  ];
+
+  // Construir marcas dinámicamente desde la API
+  const brands = ['Todos', ...marcas.map(marca => marca.nombre)];
 
   // Filtrar y ordenar dispositivos
   const filteredDevices = devices
@@ -113,9 +138,43 @@ const EstanTecApp = () => {
     });
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Cargando EstanTec</h2>
+          <p className="text-gray-600">Conectando con el servidor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-500 mb-4">
+            <X className="h-16 w-16 mx-auto" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error de conexión</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (selectedDevice) {
     const deviceReviews = getDeviceReviews(selectedDevice.id);
-    
+
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
@@ -142,12 +201,14 @@ const EstanTecApp = () => {
             <div className="space-y-4">
               <div className="aspect-square bg-white rounded-lg overflow-hidden shadow-lg">
                 <img
-                  src={selectedDevice.imagenes_galeria[selectedImage]}
+                  src={Array.isArray(selectedDevice.imagenes_galeria) && selectedDevice.imagenes_galeria[selectedImage]
+                    ? selectedDevice.imagenes_galeria[selectedImage]
+                    : selectedDevice.url_imagen}
                   alt={selectedDevice.nomre}
                   className="w-full h-full object-cover"
                 />
               </div>
-              {selectedDevice.imagenes_galeria.length > 1 && (
+              {Array.isArray(selectedDevice.imagenes_galeria) && selectedDevice.imagenes_galeria.length > 1 && (
                 <div className="flex space-x-2">
                   {selectedDevice.imagenes_galeria.map((image, index) => (
                     <button
@@ -175,7 +236,7 @@ const EstanTecApp = () => {
                       <Star
                         key={i}
                         className={`h-5 w-5 ${
-                          i < Math.floor(selectedDevice.rating)
+                          i < Math.floor(selectedDevice.calificacion_promedio)
                             ? 'text-yellow-400 fill-current'
                             : 'text-gray-300'
                         }`}
@@ -464,7 +525,7 @@ const EstanTecApp = () => {
                         <Star
                           key={i}
                           className={`h-4 w-4 ${
-                            i < Math.floor(device.rating)
+                            i < Math.floor(device.calificacion_promedio)
                               ? 'text-yellow-400 fill-current'
                               : 'text-gray-300'
                           }`}
