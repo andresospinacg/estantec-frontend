@@ -16,7 +16,7 @@ API REST para el sistema de administración de EstanTec, construida con Node.js,
 
 - Node.js (v16 o superior)
 - MariaDB/MySQL
-- Base de datos `TiendaEstanTec_BD` creada
+- Base de datos `TiendaEstanTec_BD` creada, en la raíz se encuentra la copia de seguridad llamada 'backup_20250913_221539.sql'
 
 ## 🛠️ Instalación
 
